@@ -1,0 +1,48 @@
+{
+  "ok": false,
+  "remote": {
+    "status": 403,
+    "headers": {
+      "date": "Wed, 29 Oct 2025 08:39:52 GMT",
+      "content-type": "application/json",
+      "content-length": "75",
+      "cache-control": "no-cache,no-store,must-revalidate",
+      "x-xss-protection": "1;mode=block",
+      "x-frame-options": "SAMEORIGIN",
+      "content-security-policy": "script-src 'self'",
+      "strict-transport-security": "max-age=63072000; includeSubDomains; preload",
+      "x-content-type-options": "nosniff",
+      "server": "nepse-tms"
+    },
+    "data": {
+      "status": "403",
+      "level": "OAUTH",
+      "message": "METHOD_NOT_ALLOWED",
+      "data": null
+    }
+  }
+} 
+
+Add logs to this to see what payload i send what response i get and stuff also 
+NEPSE Trading Assistant 
+{
+    "ok": false,
+    "error": "Initial price validation failed: No current price available. Monitor may not be running."
+}
+
+
+sPLIT ORDERS GIVE THIS ISSUE
+== Job job_1_1761727246618 Failed ===
+Error: Initial price validation failed: No current price available. Monitor may not be running.  
+
+Split order error: Error: Initial price validation failed: No current price available. Monitor may not be running.
+    at SplitOrderPlacer.placeSplitOrders (C:\Users\diwak\OneDrive\Desktop\sniper\services\splitOrderPlacer.js:87:15)
+    at C:\Users\diwak\OneDrive\Desktop\sniper\server.js:987:40
+    at Layer.handle [as handle_request] (C:\Users\diwak\OneDrive\Desktop\sniper\node_modules\express\lib\router\layer.js:95:5)
+    at next (C:\Users\diwak\OneDrive\Desktop\sniper\node_modules\express\lib\router\route.js:149:13)
+    at Route.dispatch (C:\Users\diwak\OneDrive\Desktop\sniper\node_modules\express\lib\router\route.js:119:3)
+    at Layer.handle [as handle_request] (C:\Users\diwak\OneDrive\Desktop\sniper\node_modules\express\lib\router\layer.js:95:5)
+    at C:\Users\diwak\OneDrive\Desktop\sniper\node_modules\express\lib\router\index.js:284:15    
+    at Function.process_params (C:\Users\diwak\OneDrive\Desktop\sniper\node_modules\express\lib\router\index.js:346:12)
+    at next (C:\Users\diwak\OneDrive\Desktop\sniper\node_modules\express\lib\router\index.js:280:10)
+    at serveStatic (C:\Users\diwak\OneDrive\Desktop\sniper\node_modules\serve-static\index.js:75:16)

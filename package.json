@@ -1,0 +1,14 @@
+{
+  "name": "nepse-trading-assistant",
+  "version": "2.0.0",
+  "description": "Modern NEPSE Trading Assistant built with Vite + React",
+  "scripts": {
+    "dev": "cd nepse-trading-vite && npm run dev",
+    "build": "cd nepse-trading-vite && npm run build",
+    "preview": "cd nepse-trading-vite && npm run preview",
+    "install": "cd nepse-trading-vite && npm install"
+  },
+  "keywords": ["nepse", "trading", "vite", "react"],
+  "author": "",
+  "license": "MIT"
+}
