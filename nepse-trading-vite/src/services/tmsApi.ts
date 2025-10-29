@@ -1,8 +1,9 @@
 import axios, { type AxiosInstance } from 'axios';
 
-// In development, use empty baseURL to proxy through Vite dev server
-// In production, set this to the actual TMS URL
-const TMS_BASE_URL = import.meta.env.DEV ? '' : 'https://tms56.nepsetms.com.np';
+// In development, use Vite dev server proxy (/tmsapi)
+// In production (Vercel), use serverless function (/api/tmsapi)
+const API_PREFIX = import.meta.env.DEV ? '/tmsapi' : '/api/tmsapi';
+const TMS_BASE_URL = '';
 
 class TMSApiClient {
   private client: AxiosInstance;
@@ -16,7 +17,7 @@ class TMSApiClient {
   } = {};
 
   constructor() {
-    console.log('[TMS API] Initializing with baseURL:', TMS_BASE_URL || '(using Vite proxy)');
+    console.log('[TMS API] Initializing with API prefix:', API_PREFIX);
 
     this.client = axios.create({
       baseURL: TMS_BASE_URL,
@@ -146,7 +147,7 @@ class TMSApiClient {
   }
 
   async refreshSession() {
-    const response = await this.client.post('/tmsapi/authApi/authenticate/refresh', {});
+    const response = await this.client.post(`${API_PREFIX}/authApi/authenticate/refresh`, {});
     // Update session from response headers
     const setCookie = response.headers['set-cookie'];
     if (setCookie) {
@@ -164,30 +165,30 @@ class TMSApiClient {
 
   // Stock APIs
   async getLivePrice(_symbol: string, stockId: number) {
-    const response = await this.client.get(`/tmsapi/rtApi/ws/stockQuote/${stockId}`);
+    const response = await this.client.get(`${API_PREFIX}/rtApi/ws/stockQuote/${stockId}`);
     return response.data;
   }
 
   async getOHLC(stockId: number, isin: string) {
-    const response = await this.client.get(`/tmsapi/rtApi/stock/validation/ohlc/${stockId}/${isin}`);
+    const response = await this.client.get(`${API_PREFIX}/rtApi/stock/validation/ohlc/${stockId}/${isin}`);
     return response.data;
   }
 
   async getSTP(isin: string, code: string = 'LTPCF') {
-    const response = await this.client.get(`/tmsapi/orderApi/stock/validation/stp/${isin}/${code}`);
+    const response = await this.client.get(`${API_PREFIX}/orderApi/stock/validation/stp/${isin}/${code}`);
     return response.data;
   }
 
   // Order APIs
   async placeOrder(orderPayload: any) {
-    const response = await this.client.post('/tmsapi/orderApi/order/', orderPayload);
+    const response = await this.client.post(`${API_PREFIX}/orderApi/order/`, orderPayload);
     return response.data;
   }
 
   // Client API
   async getClientInfo(ucc: string, memberCode: string = 'PG') {
     const response = await this.client.get(
-      `/tmsapi/masterclients/clientsSearchInfo?ucc=${ucc}&contactPerson=null&memberCode=${memberCode}&clientOrDealer=C&`
+      `${API_PREFIX}/masterclients/clientsSearchInfo?ucc=${ucc}&contactPerson=null&memberCode=${memberCode}&clientOrDealer=C&`
     );
     return response.data;
   }
