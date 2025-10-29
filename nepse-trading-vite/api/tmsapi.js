@@ -77,11 +77,22 @@ export default async function handler(req, res) {
 
     // For refresh endpoint, extract and return cookies
     if (path.includes('/authApi/authenticate/refresh') && response.ok) {
-      const setCookieHeaders = response.headers.get('set-cookie') || response.headers.get('Set-Cookie');
-      if (setCookieHeaders) {
-        console.log('[Vercel API] Refresh response - extracting cookies');
+      console.log('[Vercel API] Refresh response - extracting cookies');
+      
+      // Extract all set-cookie headers (fetch API can have multiple)
+      const cookies = [];
+      response.headers.forEach((value, name) => {
+        if (name.toLowerCase() === 'set-cookie') {
+          cookies.push(value);
+        }
+      });
+      
+      if (cookies.length > 0) {
+        console.log('[Vercel API] Found cookies:', cookies.length);
         // Add cookies to response data so client can update them
-        data._cookies = setCookieHeaders;
+        data._cookies = cookies;
+      } else {
+        console.warn('[Vercel API] No cookies found in refresh response');
       }
     }
 

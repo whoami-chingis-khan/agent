@@ -148,18 +148,34 @@ class TMSApiClient {
 
   async refreshSession() {
     const response = await this.client.post(`${API_PREFIX}/authApi/authenticate/refresh`, {});
-    // Update session from response headers
-    const setCookie = response.headers['set-cookie'];
+    
+    console.log('[TMS API] Refresh response:', response.data);
+    
+    // In Vercel, cookies are in response._cookies (added by serverless function)
+    // In dev, cookies are in response.headers['set-cookie']
+    const setCookie = response.data._cookies || response.headers['set-cookie'];
+    
     if (setCookie) {
+      console.log('[TMS API] Updating session with new cookies');
       // Parse and update cookies
-      setCookie.forEach((cookie: string) => {
+      const cookies = Array.isArray(setCookie) ? setCookie : [setCookie];
+      cookies.forEach((cookie: string) => {
         const [nameValue] = cookie.split(';');
         const [name, value] = nameValue.split('=');
         if (name === 'XSRF-TOKEN') this.sessionData.xsrfToken = value;
         if (name === '_aid') this.sessionData.aid = value;
         if (name === '_rid') this.sessionData.rid = value;
       });
+      
+      console.log('[TMS API] Session updated:', {
+        aid: this.sessionData.aid?.substring(0, 10) + '...',
+        rid: this.sessionData.rid?.substring(0, 10) + '...',
+        xsrfToken: this.sessionData.xsrfToken?.substring(0, 10) + '...',
+      });
+    } else {
+      console.warn('[TMS API] No cookies in refresh response');
     }
+    
     return response.data;
   }
 
