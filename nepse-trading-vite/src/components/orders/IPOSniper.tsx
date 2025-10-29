@@ -28,7 +28,7 @@ export function IPOSniper() {
   const [isExecuting, setIsExecuting] = useState(false);
   const [monitorData, setMonitorData] = useState<StockMonitorData | null>(null);
   const [result, setResult] = useState<{ success: boolean; message: string; job?: SplitOrderJob } | null>(null);
-  const [timeoutId, setTimeoutId] = useState<NodeJS.Timeout | null>(null);
+  const [timeoutId, setTimeoutId] = useState<ReturnType<typeof setTimeout> | null>(null);
   const [autoTriggerEnabled, setAutoTriggerEnabled] = useState(true);
   const [showSavedStocks, setShowSavedStocks] = useState(false);
 
@@ -274,8 +274,8 @@ export function IPOSniper() {
                 <div>
                   <p className="text-yellow-500 font-semibold">TRIGGER ZONE REACHED!</p>
                   <p className="text-sm text-dark-300">
-                    LTP: Rs. {formatPrice(monitorData.livePrice.ltp)} |
-                    Circuit: Rs. {formatPrice(monitorData.circuitLadder.circuitPrice)}
+                    LTP: Rs. {formatPrice(monitorData.livePrice?.ltp)} |
+                    Circuit: Rs. {formatPrice(monitorData.circuitLadder?.circuitPrice)}
                   </p>
                 </div>
               </div>
@@ -296,26 +296,26 @@ export function IPOSniper() {
               <div>
                 <p className="text-xs text-dark-400">LTP</p>
                 <p className="text-xl font-bold text-primary-400">
-                  Rs. {formatPrice(monitorData.livePrice.ltp)}
+                  Rs. {formatPrice(monitorData.livePrice?.ltp)}
                 </p>
               </div>
               <div>
                 <p className="text-xs text-dark-400">Change</p>
-                <p className={`text-lg font-semibold ${monitorData.livePrice.change >= 0 ? 'text-accent-green' : 'text-accent-red'}`}>
-                  {monitorData.livePrice.change >= 0 ? '+' : ''}
-                  {formatPrice(monitorData.livePrice.change)} ({monitorData.livePrice.changePercent.toFixed(2)}%)
+                <p className={`text-lg font-semibold ${(monitorData.livePrice?.change ?? 0) >= 0 ? 'text-accent-green' : 'text-accent-red'}`}>
+                  {(monitorData.livePrice?.change ?? 0) >= 0 ? '+' : ''}
+                  {formatPrice(monitorData.livePrice?.change)} ({(monitorData.livePrice?.changePercent ?? 0).toFixed(2)}%)
                 </p>
               </div>
               <div>
                 <p className="text-xs text-dark-400">Volume</p>
                 <p className="text-lg font-semibold text-dark-200">
-                  {monitorData.livePrice.volume.toLocaleString()}
+                  {(monitorData.livePrice?.volume ?? 0).toLocaleString()}
                 </p>
               </div>
               <div>
                 <p className="text-xs text-dark-400">Trades</p>
                 <p className="text-lg font-semibold text-dark-200">
-                  {monitorData.livePrice.totalTrade}
+                  {monitorData.livePrice?.totalTrade ?? 0}
                 </p>
               </div>
             </div>
@@ -323,19 +323,19 @@ export function IPOSniper() {
             <div className="mt-gr-md pt-gr-md border-t border-dark-600 grid grid-cols-4 gap-gr-sm text-xs">
               <div>
                 <span className="text-dark-400">Open:</span>
-                <span className="ml-1 text-dark-200">{formatPrice(monitorData.livePrice.open)}</span>
+                <span className="ml-1 text-dark-200">{formatPrice(monitorData.livePrice?.open)}</span>
               </div>
               <div>
                 <span className="text-dark-400">High:</span>
-                <span className="ml-1 text-dark-200">{formatPrice(monitorData.livePrice.high)}</span>
+                <span className="ml-1 text-dark-200">{formatPrice(monitorData.livePrice?.high)}</span>
               </div>
               <div>
                 <span className="text-dark-400">Low:</span>
-                <span className="ml-1 text-dark-200">{formatPrice(monitorData.livePrice.low)}</span>
+                <span className="ml-1 text-dark-200">{formatPrice(monitorData.livePrice?.low)}</span>
               </div>
               <div>
                 <span className="text-dark-400">Prev Close:</span>
-                <span className="ml-1 text-dark-200">{formatPrice(monitorData.livePrice.close)}</span>
+                <span className="ml-1 text-dark-200">{formatPrice(monitorData.livePrice?.close)}</span>
               </div>
             </div>
           </div>
@@ -348,12 +348,12 @@ export function IPOSniper() {
                 <span className="text-sm font-semibold text-dark-200">Circuit Ladder</span>
               </div>
               <div className="text-xs text-dark-400">
-                Trigger: Rs. {formatPrice(monitorData.circuitLadder.triggerPrice)}
+                Trigger: Rs. {formatPrice(monitorData.circuitLadder?.triggerPrice)}
               </div>
             </div>
 
             <div className="space-y-1 max-h-48 overflow-y-auto">
-              {monitorData.circuitLadder.steps.slice().reverse().map((step, index) => (
+              {monitorData.circuitLadder?.steps?.slice().reverse().map((step, index) => (
                 <div
                   key={index}
                   className={`flex items-center justify-between p-2 rounded ${
