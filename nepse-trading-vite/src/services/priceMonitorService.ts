@@ -24,7 +24,7 @@ export interface StockMonitorData {
 export type TriggerCallback = (data: StockMonitorData) => void;
 
 class PriceMonitorService {
-  private pollingInterval: NodeJS.Timeout | null = null;
+  private pollingInterval: ReturnType<typeof setInterval> | null = null;
   private triggerCallbacks: Set<TriggerCallback> = new Set();
   private lastTriggerState: boolean = false;
   private isMonitoring: boolean = false;

@@ -1,0 +1,31 @@
+{
+  "rewrites": [
+    {
+      "source": "/tmsapi/:path*",
+      "destination": "https://tms56.nepsetms.com.np/tmsapi/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/tmsapi/:path*",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, POST, PUT, DELETE, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "X-Requested-With, Content-Type, Accept, x-xsrf-token, host-session-id, membercode, request-owner, X-TMS-Cookies"
+        }
+      ]
+    }
+  ]
+}
