@@ -10,6 +10,18 @@ export interface SavedStock {
   lastUsed?: string;
 }
 
+// Default stocks to be available on initialization
+const DEFAULT_STOCKS: SavedStock[] = [
+  { symbol: 'BANDIPUR', stockId: 491, isin: 'NPE491A00008', companyName: 'BANDIPUR CABLE C TOURISM LIMITED' },
+  { symbol: 'SWASTIKP', stockId: 489, isin: 'NPE489A40008', companyName: 'SWASTHUBITTA BITTIYA SANSTHA LIMITED - PROMOTER SHARE' },
+  { symbol: 'SBID2090', stockId: 7, isin: 'NPE007A11066', companyName: '7% NEPAL SBI BANK DEBEN090' },
+  { symbol: 'SHINED', stockId: 97, isin: 'NPE097A11000', companyName: '8% SHINE RESUNGA DEB' },
+  { symbol: 'CSY', stockId: 313, isin: 'NPE313A30001', companyName: 'CITIZENS SADABAHAR YOJANA ENDED MUTUAL FUND)' },
+  { symbol: 'SWASTIK', stockId: 489, isin: 'NPE489A00002', companyName: 'SWASGHUBITTA BITTIYA SANSTHA LIMITED - ORDINARY SHARE' },
+  { symbol: 'DHEL', stockId: 486, isin: 'NPE486A00008', companyName: 'DARAMKHOLA HYDRO ENERGY LIMITED' },
+  { symbol: 'SAGAR', stockId: 488, isin: 'NPE488A00004', companyName: 'SAGAR DISTILLERY LIMITED' },
+];
+
 interface StocksState {
   selectedStock: Stock | null;
   livePrice: LivePrice | null;
@@ -28,7 +40,7 @@ export const useStocksStore = create<StocksState>()(
     (set, get) => ({
       selectedStock: null,
       livePrice: null,
-      savedStocks: [],
+      savedStocks: DEFAULT_STOCKS,
 
       setSelectedStock: (stock) => set({ selectedStock: stock }),
       setLivePrice: (price) => set({ livePrice: price }),

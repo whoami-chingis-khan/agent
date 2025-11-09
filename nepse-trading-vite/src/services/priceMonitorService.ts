@@ -28,6 +28,8 @@ class PriceMonitorService {
   private triggerCallbacks: Set<TriggerCallback> = new Set();
   private lastTriggerState: boolean = false;
   private isMonitoring: boolean = false;
+  private consecutiveErrors: number = 0;
+  private maxConsecutiveErrors: number = 3;
 
   /**
    * Start monitoring a stock with automatic circuit ladder calculation
@@ -51,6 +53,7 @@ class PriceMonitorService {
 
       try {
         // Fetch all data in parallel
+        // The tmsApi automatically handles session refresh on 401 errors
         const [livePriceRes, ohlcRes, stpRes] = await Promise.all([
           tmsApi.getLivePrice(symbol, stockId),
           tmsApi.getOHLC(stockId, isin),
@@ -85,8 +88,28 @@ class PriceMonitorService {
         }
 
         this.lastTriggerState = inTriggerZone;
-      } catch (error) {
-        onError(error as Error);
+
+        // Reset error counter on successful fetch
+        this.consecutiveErrors = 0;
+      } catch (error: any) {
+        this.consecutiveErrors++;
+
+        // Handle session-related errors specifically
+        if (error.response?.status === 401) {
+          console.warn('[Price Monitor] Session expired - auto-refresh in progress...');
+          // The tmsApi interceptor handles refresh automatically
+          // Don't count 401 errors towards stopping the monitor
+          this.consecutiveErrors = 0;
+        }
+
+        // Only call error handler if we haven't exceeded max consecutive errors
+        if (this.consecutiveErrors < this.maxConsecutiveErrors) {
+          onError(error as Error);
+        } else {
+          console.error('[Price Monitor] Too many consecutive errors, stopping monitoring');
+          this.stopMonitoring();
+          onError(new Error('Monitoring stopped due to repeated errors'));
+        }
       }
     };
 
@@ -107,6 +130,7 @@ class PriceMonitorService {
     }
     this.isMonitoring = false;
     this.lastTriggerState = false;
+    this.consecutiveErrors = 0;
   }
 
   /**

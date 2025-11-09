@@ -4,6 +4,7 @@ import { SessionManager } from './components/session/SessionManager';
 import { LivePriceMonitor } from './components/orders/LivePriceMonitor';
 import { SimpleOrder } from './components/orders/SimpleOrder';
 import { IPOSniper } from './components/orders/IPOSniper';
+import { NepseIndexTracker } from './components/dashboard/NepseIndexTracker';
 
 function App() {
   const [activeTab, setActiveTab] = useState('session');
@@ -14,6 +15,7 @@ function App() {
 
       {activeTab === 'orders' && (
         <div className="space-y-gr-lg">
+          <NepseIndexTracker />
           <LivePriceMonitor />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-gr-lg">
             <SimpleOrder />

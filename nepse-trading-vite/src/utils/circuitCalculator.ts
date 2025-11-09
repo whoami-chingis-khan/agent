@@ -159,20 +159,22 @@ export function isInTriggerZone(currentLTP: number, triggerPrice: number): boole
 
 /**
  * Align price to tick size (minimum price increment)
- * Example: price=103.025, tickSize=0.01 → 103.03
+ * For NEPSE, we truncate (floor) to 1 decimal place - NO rounding
+ * Example: price=399.74 → 399.7, price=399.79 → 399.7, price=103.025 → 103.0
  */
 export function alignToTickSize(price: number, tickSize: number): number {
-  return Math.round(price / tickSize) * tickSize;
+  // Truncate to 1 decimal place (tenths) for NEPSE - NO rounding
+  return Math.floor(price * 10) / 10;
 }
 
 /**
- * Format price to 2 decimal places
+ * Format price to 1 decimal place for NEPSE
  */
 export function formatPrice(price: number | undefined | null): string {
   if (price === undefined || price === null || isNaN(price)) {
-    return '0.00';
+    return '0.0';
   }
-  return price.toFixed(2);
+  return price.toFixed(1);
 }
 
 /**

@@ -30,8 +30,31 @@ export default defineConfig({
               'Cookie': customCookies ? 'SET' : 'NOT SET',
             });
           });
-          proxy.on('proxyRes', (proxyRes, req, _res) => {
+          proxy.on('proxyRes', (proxyRes, req, res) => {
             console.log('[Vite Proxy] Response:', proxyRes.statusCode, req.url);
+
+            // Capture Set-Cookie headers and send them back in a custom header
+            // This allows the frontend to access cookies that would normally be hidden
+            const setCookieHeaders = proxyRes.headers['set-cookie'];
+            if (setCookieHeaders && setCookieHeaders.length > 0) {
+              console.log('[Vite Proxy] Captured Set-Cookie headers:', setCookieHeaders);
+              // Send cookies back via custom header that JavaScript can read
+              res.setHeader('X-Set-Cookie', JSON.stringify(setCookieHeaders));
+            }
+
+            // Also capture and forward other important headers
+            const newXsrfToken = proxyRes.headers['x-xsrf-token'];
+            const newSessionId = proxyRes.headers['host-session-id'];
+
+            if (newXsrfToken) {
+              console.log('[Vite Proxy] Captured x-xsrf-token:', newXsrfToken);
+              res.setHeader('X-New-Xsrf-Token', newXsrfToken);
+            }
+
+            if (newSessionId) {
+              console.log('[Vite Proxy] Captured host-session-id:', newSessionId);
+              res.setHeader('X-New-Session-Id', newSessionId);
+            }
           });
         },
       },

@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
-import { Zap, AlertTriangle, Info, TrendingUp, Activity, Save, BookmarkPlus, Trash2 } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Zap, AlertTriangle, Info, TrendingUp, Activity, Save, BookmarkPlus, Trash2, Monitor, Edit3 } from 'lucide-react';
 import { useSessionStore } from '../../store/sessionStore';
 import { useStocksStore, type SavedStock } from '../../store/stocksStore';
 import splitOrderService from '../../services/splitOrderService';
 import priceMonitorService, { type StockMonitorData } from '../../services/priceMonitorService';
-import { formatPrice, getStepStatusEmoji, getStepStatusLabel } from '../../utils/circuitCalculator';
+import { formatPrice, getStepStatusEmoji, getStepStatusLabel, buildCircuitLadder, getStepStatusColor, type CircuitLadder } from '../../utils/circuitCalculator';
 import type { SplitOrderConfig, SplitOrderJob } from '../../types/order';
 
 export function IPOSniper() {
@@ -16,21 +16,37 @@ export function IPOSniper() {
     isin: '',
     companyName: '',
     previousClose: '',
+    openingLtp: '', // Manual opening LTP for ladder calculation
     quantity: '',
-    numOrders: '3',
-    delayMs: '300',
+    numOrders: '10',  // Default 10 orders = 2 bursts of 5 for aggressive placement
+    delayMs: '100',    // Reduced delay for faster burst execution
     ucc: '',
     clientCode: '',
     targetTime: '',
   });
   const [isArmed, setIsArmed] = useState(false);
-  const [isMonitoring, setIsMonitoring] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
-  const [monitorData, setMonitorData] = useState<StockMonitorData | null>(null);
   const [result, setResult] = useState<{ success: boolean; message: string; job?: SplitOrderJob } | null>(null);
   const [timeoutId, setTimeoutId] = useState<ReturnType<typeof setTimeout> | null>(null);
-  const [autoTriggerEnabled, setAutoTriggerEnabled] = useState(true);
   const [showSavedStocks, setShowSavedStocks] = useState(false);
+
+  // Price monitoring toggle
+  const [autoPriceMonitoring, setAutoPriceMonitoring] = useState(false);
+  const [isMonitoring, setIsMonitoring] = useState(false);
+  const [monitorData, setMonitorData] = useState<StockMonitorData | null>(null);
+  const [autoTriggerEnabled, setAutoTriggerEnabled] = useState(true);
+
+  // Calculate manual circuit ladder based on opening LTP input
+  const manualLadder: CircuitLadder | null = useMemo(() => {
+    if (!formData.openingLtp || !formData.previousClose) return null;
+
+    const openingLtp = parseFloat(formData.openingLtp);
+    const previousClose = parseFloat(formData.previousClose);
+
+    if (isNaN(openingLtp) || isNaN(previousClose)) return null;
+
+    return buildCircuitLadder(openingLtp, previousClose, 0.01);
+  }, [formData.openingLtp, formData.previousClose]);
 
   useEffect(() => {
     // Cleanup on unmount
@@ -38,19 +54,28 @@ export function IPOSniper() {
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
-      priceMonitorService.stopMonitoring();
+      if (isMonitoring) {
+        priceMonitorService.stopMonitoring();
+      }
     };
-  }, [timeoutId]);
+  }, [timeoutId, isMonitoring]);
 
-  // Auto-trigger effect - executes order when trigger zone is reached
+  // Auto-stop monitoring when toggle is turned off
   useEffect(() => {
-    if (!autoTriggerEnabled || !isMonitoring || !monitorData) return;
+    if (!autoPriceMonitoring && isMonitoring) {
+      stopMonitoring();
+    }
+  }, [autoPriceMonitoring]);
+
+  // Auto-trigger effect - executes order when trigger zone is reached (only in auto mode)
+  useEffect(() => {
+    if (!autoPriceMonitoring || !autoTriggerEnabled || !isMonitoring || !monitorData) return;
 
     if (monitorData.isInTriggerZone && !isArmed && !isExecuting) {
       console.log('[IPO Sniper] Auto-trigger activated - LTP reached trigger zone');
       executeOrder();
     }
-  }, [monitorData?.isInTriggerZone, autoTriggerEnabled, isMonitoring]);
+  }, [monitorData?.isInTriggerZone, autoTriggerEnabled, isMonitoring, autoPriceMonitoring, isArmed, isExecuting]);
 
   const startMonitoring = async () => {
     if (!formData.stockId || !formData.symbol || !formData.isin || !formData.previousClose) {
@@ -72,8 +97,11 @@ export function IPOSniper() {
           setMonitorData(data);
         },
         (error) => {
-          console.error('Price monitoring error:', error);
-          setResult({ success: false, message: `Monitoring error: ${error.message}` });
+          console.error('[IPO Sniper] Price monitoring error:', error);
+          // Don't show error for 401 (session refresh is automatic)
+          if (!error.message?.includes('401')) {
+            setResult({ success: false, message: `Monitoring error: ${error.message}` });
+          }
         }
       );
     } catch (error: any) {
@@ -91,9 +119,8 @@ export function IPOSniper() {
   const executeOrder = async () => {
     setIsExecuting(true);
     try {
-      // Use circuit price from ladder if available, otherwise use previous close + 10%
-      const circuitPrice = monitorData?.circuitLadder.circuitPrice ||
-        parseFloat(formData.previousClose) * 1.10;
+      // Calculate circuit price (previous close + 10%)
+      const circuitPrice = parseFloat(formData.previousClose) * 1.10;
 
       const config: SplitOrderConfig = {
         symbol: formData.symbol,
@@ -514,6 +541,125 @@ export function IPOSniper() {
             placeholder="e.g., 100.00 (Circuit will be calculated as 110.00)"
           />
         </div>
+
+        {/* Price Monitoring Toggle */}
+        <div className="bg-dark-700 p-gr-md rounded-lg">
+          <div className="flex items-center justify-between mb-gr-md">
+            <div className="flex items-center space-x-2">
+              <Monitor className="w-4 h-4 text-primary-400" />
+              <h3 className="text-sm font-semibold text-dark-200">Price Monitoring</h3>
+            </div>
+            <button
+              onClick={() => {
+                setAutoPriceMonitoring(!autoPriceMonitoring);
+                if (autoPriceMonitoring) {
+                  stopMonitoring();
+                }
+              }}
+              disabled={isArmed || isExecuting}
+              className={`flex items-center space-x-2 px-3 py-1.5 rounded-lg font-medium transition-colors text-sm ${
+                autoPriceMonitoring
+                  ? 'bg-accent-green/20 text-accent-green hover:bg-accent-green/30'
+                  : 'bg-dark-600 text-dark-400 hover:bg-dark-500'
+              }`}
+            >
+              <Activity className="w-3 h-3" />
+              <span>{autoPriceMonitoring ? 'Auto' : 'Manual'}</span>
+            </button>
+          </div>
+
+          {!autoPriceMonitoring && (
+            <div>
+              <label className="label">Opening LTP (Manual Entry)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={formData.openingLtp}
+                onChange={(e) => setFormData({ ...formData, openingLtp: e.target.value })}
+                className="input"
+                disabled={isArmed || isExecuting}
+                placeholder="e.g., 101.00 (Enter market opening price)"
+              />
+              <p className="text-xs text-dark-400 mt-1">
+                <Edit3 className="w-3 h-3 inline mr-1" />
+                Enter the opening LTP to calculate circuit ladder manually
+              </p>
+            </div>
+          )}
+
+          {autoPriceMonitoring && (
+            <div className="space-y-gr-sm">
+              <p className="text-xs text-dark-400">
+                <Info className="w-3 h-3 inline mr-1" />
+                Automatic monitoring will fetch live prices every second. Requires valid stock details.
+              </p>
+              {!isMonitoring && (
+                <button
+                  onClick={startMonitoring}
+                  disabled={!formData.stockId || !formData.symbol || !formData.isin || !formData.previousClose || isArmed || isExecuting}
+                  className="btn btn-primary btn-sm w-full"
+                >
+                  Start Monitoring
+                </button>
+              )}
+              {isMonitoring && (
+                <button
+                  onClick={stopMonitoring}
+                  className="btn btn-danger btn-sm w-full"
+                >
+                  Stop Monitoring
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Manual Circuit Ladder Display */}
+        {!autoPriceMonitoring && manualLadder && (
+          <div className="bg-dark-700 p-gr-md rounded-lg">
+            <div className="flex items-center justify-between mb-gr-md">
+              <div className="flex items-center space-x-gr-sm">
+                <TrendingUp className="w-4 h-4 text-primary-400" />
+                <span className="text-sm font-semibold text-dark-200">Circuit Ladder (Manual)</span>
+              </div>
+              <div className="text-xs space-x-2">
+                <span className="text-dark-400">Trigger:</span>
+                <span className="text-yellow-500 font-mono font-semibold">Rs. {formatPrice(manualLadder.triggerPrice)}</span>
+              </div>
+            </div>
+
+            <div className="space-y-1 max-h-64 overflow-y-auto">
+              {manualLadder.steps.slice().reverse().map((step, index) => (
+                <div
+                  key={index}
+                  className={`flex items-center justify-between p-2 rounded transition-colors ${
+                    step.status === 'current' ? 'bg-accent-green/20 border border-accent-green/30' :
+                    step.status === 'circuit' ? 'bg-accent-red/20 border border-accent-red/30' :
+                    step.status === 'trigger' ? 'bg-yellow-500/20 border border-yellow-500/30' :
+                    'bg-dark-600'
+                  }`}
+                >
+                  <div className="flex items-center space-x-gr-sm">
+                    <span className="text-sm">{getStepStatusEmoji(step.status)}</span>
+                    <span className="text-xs text-dark-300">{getStepStatusLabel(step.status)}</span>
+                  </div>
+                  <span className={`text-sm font-mono font-semibold ${getStepStatusColor(step.status)}`}>
+                    Rs. {formatPrice(step.price)}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-gr-md pt-gr-md border-t border-dark-600 text-xs text-dark-400">
+              <p>
+                <span className="font-semibold text-yellow-500">🟡 Trigger Zone:</span> Fire the sniper when LTP reaches Rs. {formatPrice(manualLadder.triggerPrice)}
+              </p>
+              <p className="mt-1">
+                <span className="font-semibold text-accent-red">🔴 Circuit Price:</span> Rs. {formatPrice(manualLadder.circuitPrice)} (+10% from previous close)
+              </p>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-3 gap-gr-md">
           <div>
