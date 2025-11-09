@@ -1,26 +1,27 @@
 import { useState } from 'react';
 import { Layout } from './components/layout/Layout';
-import { SessionManager } from './components/session/SessionManager';
-import { LivePriceMonitor } from './components/orders/LivePriceMonitor';
-import { SimpleOrder } from './components/orders/SimpleOrder';
-import { IPOSniper } from './components/orders/IPOSniper';
+import { ClientManager } from './components/clients/ClientManager';
+import { IPOSniperMulti } from './components/orders/IPOSniperMulti';
+import { SniperDashboard } from './components/dashboard/SniperDashboard';
 import { NepseIndexTracker } from './components/dashboard/NepseIndexTracker';
 
 function App() {
-  const [activeTab, setActiveTab] = useState('session');
+  const [activeTab, setActiveTab] = useState('clients');
 
   return (
     <Layout activeTab={activeTab} onTabChange={setActiveTab}>
-      {activeTab === 'session' && <SessionManager />}
+      {activeTab === 'clients' && <ClientManager />}
 
-      {activeTab === 'orders' && (
+      {activeTab === 'sniper' && (
+        <div className="space-y-gr-lg">
+          <IPOSniperMulti />
+        </div>
+      )}
+
+      {activeTab === 'dashboard' && (
         <div className="space-y-gr-lg">
           <NepseIndexTracker />
-          <LivePriceMonitor />
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-gr-lg">
-            <SimpleOrder />
-            <IPOSniper />
-          </div>
+          <SniperDashboard />
         </div>
       )}
 

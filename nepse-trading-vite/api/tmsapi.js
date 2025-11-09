@@ -5,7 +5,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
   res.setHeader(
     'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, x-xsrf-token, host-session-id, membercode, request-owner, X-TMS-Cookies'
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, x-xsrf-token, host-session-id, membercode, request-owner, X-TMS-Cookies, X-TMS-Provider'
   );
 
   // Handle preflight
@@ -20,6 +20,9 @@ export default async function handler(req, res) {
     
     // Get custom cookies from header
     const customCookies = req.headers['x-tms-cookies'];
+    
+    // CRITICAL: Get TMS provider URL (defaults to tms56 for backward compatibility)
+    const tmsBaseUrl = req.headers['x-tms-provider'] || 'https://tms56.nepsetms.com.np';
     
     // Build headers for TMS API
     const headers = {
@@ -49,13 +52,14 @@ export default async function handler(req, res) {
     console.log('[Vercel API] Request:', {
       method: req.method,
       path: path,
+      tmsBaseUrl: tmsBaseUrl,
       hasCookies: !!customCookies,
       hasXsrfToken: !!req.headers['x-xsrf-token'],
       hasSessionId: !!req.headers['host-session-id'],
     });
 
-    // Make request to TMS API
-    const tmsUrl = `https://tms56.nepsetms.com.np/tmsapi${path}`;
+    // Make request to TMS API (use client-specific TMS provider)
+    const tmsUrl = `${tmsBaseUrl}/tmsapi${path}`;
     const options = {
       method: req.method,
       headers: headers,

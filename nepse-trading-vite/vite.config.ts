@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/tmsapi': {
-        target: 'https://tms56.nepsetms.com.np',
+        target: 'https://tms56.nepsetms.com.np', // Default, can be overridden per request
         changeOrigin: true,
         secure: false,
         configure: (proxy, _options) => {
@@ -15,6 +15,17 @@ export default defineConfig({
             console.log('[Vite Proxy] Error:', err);
           });
           proxy.on('proxyReq', (proxyReq, req, _res) => {
+            // CRITICAL: Support dynamic TMS provider per client
+            const tmsProviderHeader = req.headers['x-tms-provider'];
+            const tmsProvider = Array.isArray(tmsProviderHeader) ? tmsProviderHeader[0] : tmsProviderHeader;
+            
+            if (tmsProvider) {
+              // Override target URL dynamically
+              proxyReq.path = tmsProvider.replace(/^https?:\/\/[^\/]+/, '') + proxyReq.path;
+              proxyReq.setHeader('Host', new URL(tmsProvider).host);
+              console.log('[Vite Proxy] Using TMS Provider:', tmsProvider);
+            }
+            
             // Inject cookies from custom header
             // Frontend sends cookies via X-TMS-Cookies header to bypass browser restrictions
             const customCookies = req.headers['x-tms-cookies'];

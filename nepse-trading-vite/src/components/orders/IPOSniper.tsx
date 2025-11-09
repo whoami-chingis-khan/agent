@@ -27,7 +27,7 @@ export function IPOSniper() {
   const successCountRef = useRef(0);
   const failedCountRef = useRef(0);
   const gateway502CountRef = useRef(0);
-  const firingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const firingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hasFilledRef = useRef(false);
   const currentDelayRef = useRef(400); // Start with 400ms base delay to prevent 502 errors
 

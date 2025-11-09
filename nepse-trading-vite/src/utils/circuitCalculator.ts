@@ -162,7 +162,7 @@ export function isInTriggerZone(currentLTP: number, triggerPrice: number): boole
  * For NEPSE, we truncate (floor) to 1 decimal place - NO rounding
  * Example: price=399.74 → 399.7, price=399.79 → 399.7, price=103.025 → 103.0
  */
-export function alignToTickSize(price: number, tickSize: number): number {
+export function alignToTickSize(price: number, _tickSize: number): number {
   // Truncate to 1 decimal place (tenths) for NEPSE - NO rounding
   return Math.floor(price * 10) / 10;
 }

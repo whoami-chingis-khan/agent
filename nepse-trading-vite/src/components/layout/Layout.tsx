@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react';
 import { Header } from './Header';
-import { Settings, TrendingUp, Bell, FileText } from 'lucide-react';
+import { Users, Target, BarChart3, Bell, FileText } from 'lucide-react';
 
 interface LayoutProps {
   children: ReactNode;
@@ -10,8 +10,9 @@ interface LayoutProps {
 
 export function Layout({ children, activeTab, onTabChange }: LayoutProps) {
   const tabs = [
-    { id: 'session', label: 'Session', icon: Settings },
-    { id: 'orders', label: 'Orders', icon: TrendingUp },
+    { id: 'clients', label: 'Clients', icon: Users },
+    { id: 'sniper', label: 'IPO Sniper', icon: Target },
+    { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
     { id: 'monitoring', label: 'Monitoring', icon: Bell },
     { id: 'history', label: 'History', icon: FileText },
   ];
