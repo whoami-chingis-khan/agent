@@ -20,16 +20,11 @@ export function IPOSniper() {
   });
   const [clientInfo, setClientInfo] = useState<{ ucc: string; clientCode: number } | null>(null);
   const [isContinuousFiring, setIsContinuousFiring] = useState(false);
-  const [isForceFiring, setIsForceFiring] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
   const [showSavedStocks, setShowSavedStocks] = useState(false);
   const orderCountRef = useRef(0);
-  const successCountRef = useRef(0);
-  const failedCountRef = useRef(0);
-  const gateway502CountRef = useRef(0);
   const firingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const hasFilledRef = useRef(false);
-  const currentDelayRef = useRef(400); // Start with 400ms base delay to prevent 502 errors
 
   const [autoPriceMonitoring, setAutoPriceMonitoring] = useState(false);
   const [isMonitoring, setIsMonitoring] = useState(false);
@@ -53,10 +48,7 @@ export function IPOSniper() {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      // Stop continuous firing by setting state to false (recursive loop will stop)
-      setIsContinuousFiring(false);
-      setIsForceFiring(false);
-      firingIntervalRef.current = null;
+      if (firingIntervalRef.current) clearInterval(firingIntervalRef.current);
       if (isMonitoring) priceMonitorService.stopMonitoring();
     };
   }, [isMonitoring]);
@@ -76,14 +68,6 @@ export function IPOSniper() {
       pauseContinuousFiring();
     }
   }, [isContinuousFiring, monitorData?.isInTriggerZone]);
-
-  // Force continuous firing (no trigger zone check)
-  useEffect(() => {
-    if (isForceFiring && !firingIntervalRef.current && !hasFilledRef.current) {
-      console.log('[IPO Sniper] Force firing - Starting continuous firing (no zone check)');
-      startContinuousFiring();
-    }
-  }, [isForceFiring]);
 
   const fetchClientInfo = async () => {
     try {
@@ -144,8 +128,7 @@ export function IPOSniper() {
     }
 
     try {
-      // Floor to 1 decimal place instead of rounding (e.g., 464.97 -> 464.9, not 465.0)
-      const circuitPrice = Math.floor(parseFloat(formData.previousClose) * 1.10 * 10) / 10;
+      const circuitPrice = parseFloat(formData.previousClose) * 1.10;
       const orderPayload = {
         orderBook: {
           orderBookExtensions: [{
@@ -213,67 +196,36 @@ export function IPOSniper() {
         exchangeOrderId: null
       };
 
-      console.log('[IPO Sniper] Firing order #' + (orderCountRef.current + 1) + ` (delay: ${currentDelayRef.current}ms)`);
+      console.log('[IPO Sniper] Firing order #' + (orderCountRef.current + 1));
       const response = await tmsApi.placeOrder(orderPayload);
       orderCountRef.current++;
-      successCountRef.current++;
       hasFilledRef.current = true;
-
-      // Reset delay to base on success
-      currentDelayRef.current = 400;
-
       console.log('[IPO Sniper] Order placed successfully:', response);
-      setResult({ success: true, message: `Order #${orderCountRef.current} FILLED at Rs. ${formatPrice(circuitPrice)}! (Success: ${successCountRef.current}, Failed: ${failedCountRef.current}, 502: ${gateway502CountRef.current}) ${isContinuousFiring || isForceFiring ? 'Stopping continuous fire.' : ''}` });
+      setResult({ success: true, message: `Order #${orderCountRef.current} FILLED at Rs. ${formatPrice(circuitPrice)}! ${isContinuousFiring ? 'Stopping continuous fire.' : ''}` });
 
       // Stop continuous firing after first success
-      if (isContinuousFiring || isForceFiring) {
+      if (isContinuousFiring) {
         stopContinuousFiring();
       }
       return true;
     } catch (error: any) {
       console.error('[IPO Sniper] Order failed:', error);
       orderCountRef.current++;
-
-      // Check if it's a 502 Bad Gateway error (server overload)
-      const is502Error = error.message?.includes('502') ||
-                         error.message?.includes('Bad Gateway') ||
-                         error.response?.status === 502;
-
-      if (is502Error) {
-        gateway502CountRef.current++;
-        // Exponential backoff: double the delay up to max 1000ms
-        currentDelayRef.current = Math.min(currentDelayRef.current * 2, 1000);
-        console.warn(`[IPO Sniper] 502 error detected (${gateway502CountRef.current} total), increasing delay to ${currentDelayRef.current}ms`);
-        setResult({ success: false, message: `Order #${orderCountRef.current} failed: 502 Gateway (${gateway502CountRef.current}). Delay: ${currentDelayRef.current}ms | Stats: Success: ${successCountRef.current}, Failed: ${failedCountRef.current}, 502: ${gateway502CountRef.current}` });
-      } else {
-        failedCountRef.current++;
-        // Valid API error (like 400), reset delay to base
-        currentDelayRef.current = 400;
-        setResult({ success: false, message: `Order #${orderCountRef.current} failed: ${error.response?.data?.message || error.message} | Stats: Success: ${successCountRef.current}, Failed: ${failedCountRef.current}, 502: ${gateway502CountRef.current}` });
-      }
-
-      // Continue firing if still in continuous mode and not filled
-      if ((isContinuousFiring || isForceFiring) && !hasFilledRef.current) {
-        await new Promise(resolve => setTimeout(resolve, currentDelayRef.current));
-        return await fireSingleOrder();
-      }
+      setResult({ success: false, message: `Order #${orderCountRef.current} failed: ${error.response?.data?.message || error.message}` });
       return false;
     }
   };
 
-  const startContinuousFiring = async () => {
+  const startContinuousFiring = () => {
     if (firingIntervalRef.current) return;
-    // Reset delay to base when starting
-    currentDelayRef.current = 400;
-    // Use ref as a marker that continuous firing is active (not an interval)
-    firingIntervalRef.current = {} as any;
-    // Fire sequentially - fireSingleOrder will recursively call itself with adaptive delay
-    await fireSingleOrder();
+    fireSingleOrder();
+    // Fire every 60ms to match API response time
+    firingIntervalRef.current = setInterval(() => { fireSingleOrder(); }, 60);
   };
 
   const pauseContinuousFiring = () => {
-    // Just clear the ref marker - the recursive loop will stop when isContinuousFiring is false
     if (firingIntervalRef.current) {
+      clearInterval(firingIntervalRef.current);
       firingIntervalRef.current = null;
     }
   };
@@ -281,8 +233,7 @@ export function IPOSniper() {
   const stopContinuousFiring = () => {
     pauseContinuousFiring();
     setIsContinuousFiring(false);
-    setIsForceFiring(false);
-    setResult({ success: true, message: `Continuous fire stopped. Total: ${orderCountRef.current} | Success: ${successCountRef.current} | Failed: ${failedCountRef.current} | 502 Errors: ${gateway502CountRef.current}` });
+    setResult({ success: true, message: `Continuous fire stopped. Total orders attempted: ${orderCountRef.current}${hasFilledRef.current ? ' (1 filled)' : ''}` });
   };
 
   const handleContinuousFire = () => {
@@ -300,11 +251,8 @@ export function IPOSniper() {
     }
     setIsContinuousFiring(true);
     orderCountRef.current = 0;
-    successCountRef.current = 0;
-    failedCountRef.current = 0;
-    gateway502CountRef.current = 0;
     hasFilledRef.current = false;
-    setResult({ success: true, message: 'Continuous fire enabled! Will fire orders at adaptive 400-1000ms interval when in trigger zone until first order fills.' });
+    setResult({ success: true, message: 'Continuous fire enabled! Will fire orders at 60ms interval when in trigger zone until first order fills.' });
   };
 
   const handleStopContinuousFire = () => {
@@ -321,29 +269,8 @@ export function IPOSniper() {
       return;
     }
     orderCountRef.current = 0;
-    successCountRef.current = 0;
-    failedCountRef.current = 0;
-    gateway502CountRef.current = 0;
     hasFilledRef.current = false;
     await fireSingleOrder();
-  };
-
-  const handleForceContinuousFire = () => {
-    if (!isAuthenticated) {
-      setResult({ success: false, message: 'Please activate session first' });
-      return;
-    }
-    if (!clientInfo) {
-      setResult({ success: false, message: 'Client info not loaded' });
-      return;
-    }
-    setIsForceFiring(true);
-    orderCountRef.current = 0;
-    successCountRef.current = 0;
-    failedCountRef.current = 0;
-    gateway502CountRef.current = 0;
-    hasFilledRef.current = false;
-    setResult({ success: true, message: 'Force continuous fire enabled! Firing orders at adaptive 400-1000ms interval (no trigger zone check) until first order fills.' });
   };
 
   const handleStartMonitoring = () => {
@@ -387,21 +314,15 @@ export function IPOSniper() {
         <h2 className="text-xl font-bold">IPO Sniper</h2>
       </div>
 
-      {(isContinuousFiring || isForceFiring) && (
+      {isContinuousFiring && (
         <div className="mb-gr-md p-gr-md bg-accent-green/10 border border-accent-green/30 rounded-lg">
           <div className="flex items-center space-x-gr-md">
             <AlertTriangle className="w-5 h-5 text-accent-green animate-pulse" />
             <div className="flex-1">
               <span className="text-accent-green font-semibold block">
-                {isForceFiring
-                  ? 'FORCE CONTINUOUS FIRE - ACTIVE! (adaptive 400-1000ms, no zone check)'
-                  : firingIntervalRef.current
-                    ? 'CONTINUOUS FIRE - ACTIVE! (adaptive 400-1000ms)'
-                    : 'CONTINUOUS FIRE - Waiting for trigger zone...'}
+                {firingIntervalRef.current ? 'CONTINUOUS FIRE - ACTIVE! (60ms interval)' : 'CONTINUOUS FIRE - Waiting for trigger zone...'}
               </span>
-              <span className="text-xs text-dark-300">
-                Total: {orderCountRef.current} | Success: {successCountRef.current} | Failed: {failedCountRef.current} | 502: {gateway502CountRef.current} | Current Delay: {currentDelayRef.current}ms
-              </span>
+              <span className="text-xs text-dark-300">Orders attempted: {orderCountRef.current}</span>
             </div>
           </div>
         </div>
@@ -642,26 +563,22 @@ export function IPOSniper() {
               <Activity className="w-4 h-4" /><span>Start Live Monitoring</span>
             </button>
           ) : (
-            <button onClick={stopMonitoring} disabled={isContinuousFiring || isForceFiring} className="btn btn-danger w-full">Stop Monitoring</button>
+            <button onClick={stopMonitoring} disabled={isContinuousFiring} className="btn btn-danger w-full">Stop Monitoring</button>
           )}
 
-          <div className="space-y-gr-sm">
-            {!isContinuousFiring && !isForceFiring && isMonitoring && (
-              <div className="grid grid-cols-3 gap-gr-md">
-                <button onClick={handleContinuousFire} disabled={!isAuthenticated || !clientInfo} className="btn btn-success flex items-center justify-center space-x-1 text-sm">
-                  <Zap className="w-4 h-4" /><span>Zone Fire</span>
+          <div className="flex space-x-gr-md">
+            {!isContinuousFiring && isMonitoring ? (
+              <>
+                <button onClick={handleContinuousFire} disabled={!isAuthenticated || !clientInfo} className="btn btn-success flex-1 flex items-center justify-center space-x-2">
+                  <Zap className="w-4 h-4" /><span>Continuous Fire</span>
                 </button>
-                <button onClick={handleForceContinuousFire} disabled={!isAuthenticated || !clientInfo} className="btn btn-warning flex items-center justify-center space-x-1 text-sm">
-                  <AlertTriangle className="w-4 h-4" /><span>Force Fire</span>
-                </button>
-                <button onClick={handleFireNow} disabled={!isAuthenticated || !clientInfo} className="btn btn-primary flex items-center justify-center space-x-1 text-sm">
+                <button onClick={handleFireNow} disabled={!isAuthenticated || !clientInfo} className="btn btn-success flex-1 flex items-center justify-center space-x-2">
                   <Target className="w-4 h-4" /><span>Fire Now</span>
                 </button>
-              </div>
-            )}
-            {(isContinuousFiring || isForceFiring) && (
+              </>
+            ) : isContinuousFiring ? (
               <button onClick={handleStopContinuousFire} className="btn btn-danger w-full">Stop Continuous Fire</button>
-            )}
+            ) : null}
           </div>
         </div>
 
@@ -673,12 +590,9 @@ export function IPOSniper() {
             <li>Click "Start Live Monitoring" to track live price and circuit ladder</li>
             <li>System calculates all 2% steps from LTP to 10% circuit price</li>
             <li>Trigger zone is 2 steps below circuit price</li>
-            <li>"Zone Fire" fires orders at adaptive 400-1000ms interval when in trigger zone, stops after first fill</li>
-            <li>"Force Fire" fires orders at adaptive 400-1000ms interval immediately (no trigger zone check), stops after first fill</li>
+            <li>"Continuous Fire" fires orders at 60ms interval when in trigger zone, stops after first fill</li>
             <li>"Fire Now" fires a single order immediately at circuit price</li>
             <li>All orders are LIMIT orders placed at circuit price (previous close + 10%)</li>
-            <li>Adaptive delay: starts at 400ms, doubles on 502 errors (400ms→800ms→1000ms max), resets to 400ms on success or valid errors</li>
-            <li>Stats tracking: Total attempts, Successful orders, Failed orders (400 errors), and 502 Gateway errors shown in real-time</li>
           </ol>
         </div>
       </div>
